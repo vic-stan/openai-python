@@ -52,8 +52,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           TAG="${{ steps.upstream.outputs.tag }}"
-          git merge "$TAG" --no-edit -m "chore: merge upstream release $TAG"
+          git merge "$TAG" --no-edit -m "chore: merge upstream release $TAG [skip ci]"
 
       - name: Push
         if: steps.check.outputs.merged == 'false'
         run: git push origin main
+
+      - name: Fetch upstream release notes
+        if: steps.check.outputs.merged == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          gh release view "$TAG" --repo openai/openai-python --json body -q .body > release_notes.md 2>/dev/null || echo "" > release_notes.md
+
+      - name: Create release
+        if: steps.check.outputs.merged == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          gh release create "$TAG" --title "$TAG" --notes-file release_notes.md
