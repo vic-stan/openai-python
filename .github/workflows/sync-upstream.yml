@@ -29,25 +29,41 @@ jobs:
           echo "tag=$LATEST" >> "$GITHUB_OUTPUT"
           echo "Latest upstream release: $LATEST"
 
+      - name: Check if release already exists on fork
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" &>/dev/null; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG already exists on fork, nothing to do."
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG not found on fork, proceeding."
+          fi
+
       - name: Fetch upstream tag
+        if: steps.check.outputs.release_exists == 'false'
         run: |
           git fetch https://github.com/openai/openai-python.git \
             "refs/tags/${{ steps.upstream.outputs.tag }}:refs/tags/${{ steps.upstream.outputs.tag }}"
 
-      - name: Check if already merged
-        id: check
+      - name: Check if tag already in branch history
+        id: merged
+        if: steps.check.outputs.release_exists == 'false'
         run: |
           TAG="${{ steps.upstream.outputs.tag }}"
           if git merge-base --is-ancestor "$TAG" HEAD 2>/dev/null; then
             echo "merged=true" >> "$GITHUB_OUTPUT"
-            echo "$TAG is already in branch history, nothing to do."
+            echo "$TAG is already in branch history, skipping merge."
           else
             echo "merged=false" >> "$GITHUB_OUTPUT"
-            echo "$TAG is not yet merged."
+            echo "$TAG is not yet in branch history, will merge."
           fi
 
       - name: Merge upstream release
-        if: steps.check.outputs.merged == 'false'
+        if: steps.check.outputs.release_exists == 'false' && steps.merged.outputs.merged == 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -66,11 +82,11 @@ jobs:
           fi
 
       - name: Push
-        if: steps.check.outputs.merged == 'false'
+        if: steps.check.outputs.release_exists == 'false' && steps.merged.outputs.merged == 'false'
         run: git push origin main
 
       - name: Fetch upstream release notes
-        if: steps.check.outputs.merged == 'false'
+        if: steps.check.outputs.release_exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -78,6 +94,7 @@ jobs:
           gh release view "$TAG" --repo openai/openai-python --json body -q .body > release_notes.md 2>/dev/null || echo "" > release_notes.md
 
       - name: Create release
+        if: steps.check.outputs.release_exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
