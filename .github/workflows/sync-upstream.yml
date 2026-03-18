@@ -52,7 +52,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           TAG="${{ steps.upstream.outputs.tag }}"
-          git merge "$TAG" --no-edit -m "chore: merge upstream release $TAG [skip ci]"
+          if ! git merge "$TAG" --no-edit -m "chore: merge upstream release $TAG [skip ci]"; then
+            git merge --abort
+            echo ""
+            echo "❌ Merge conflict with $TAG — resolve it locally:"
+            echo ""
+            echo "  git fetch https://github.com/openai/openai-python.git refs/tags/${TAG}:refs/tags/${TAG}"
+            echo "  git merge ${TAG}"
+            echo "  # fix conflicts, then:"
+            echo "  git push origin main"
+            echo ""
+            exit 1
+          fi
 
       - name: Push
         if: steps.check.outputs.merged == 'false'
