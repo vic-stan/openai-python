@@ -1,0 +1,59 @@
+name: Sync upstream releases
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest upstream release tag
+        id: upstream
+        run: |
+          LATEST=$(git ls-remote --tags https://github.com/openai/openai-python.git \
+            | awk '{print $2}' \
+            | grep -E '^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sed 's|refs/tags/||' \
+            | sort -V \
+            | tail -1)
+          echo "tag=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "Latest upstream release: $LATEST"
+
+      - name: Fetch upstream tag
+        run: |
+          git fetch https://github.com/openai/openai-python.git \
+            "refs/tags/${{ steps.upstream.outputs.tag }}:refs/tags/${{ steps.upstream.outputs.tag }}"
+
+      - name: Check if already merged
+        id: check
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          if git merge-base --is-ancestor "$TAG" HEAD 2>/dev/null; then
+            echo "merged=true" >> "$GITHUB_OUTPUT"
+            echo "$TAG is already in branch history, nothing to do."
+          else
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            echo "$TAG is not yet merged."
+          fi
+
+      - name: Merge upstream release
+        if: steps.check.outputs.merged == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG="${{ steps.upstream.outputs.tag }}"
+          git merge "$TAG" --no-edit -m "chore: merge upstream release $TAG"
+
+      - name: Push
+        if: steps.check.outputs.merged == 'false'
+        run: git push origin main
