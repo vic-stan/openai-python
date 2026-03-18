@@ -83,9 +83,13 @@ jobs:
 
       - name: Push
         if: steps.check.outputs.release_exists == 'false' && steps.merged.outputs.merged == 'false'
-        run: git push origin main
+        run: git push origin main "${{ steps.upstream.outputs.tag }}"
 
-      - name: Fetch upstream release notes
+      - name: Push tag if not already on remote
+        if: steps.check.outputs.release_exists == 'false' && steps.merged.outputs.merged == 'true'
+        run: git push origin "${{ steps.upstream.outputs.tag }}" || true
+
+
         if: steps.check.outputs.release_exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
