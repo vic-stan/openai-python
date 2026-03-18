@@ -2,7 +2,7 @@ name: Sync upstream releases
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+    - cron: "0 6 * * *" # Daily at 06:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -78,7 +78,6 @@ jobs:
           gh release view "$TAG" --repo openai/openai-python --json body -q .body > release_notes.md 2>/dev/null || echo "" > release_notes.md
 
       - name: Create release
-        if: steps.check.outputs.merged == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
