@@ -89,7 +89,7 @@ jobs:
         if: steps.check.outputs.release_exists == 'false' && steps.merged.outputs.merged == 'true'
         run: git push origin "${{ steps.upstream.outputs.tag }}" || true
 
-
+      - name: Fetch upstream release notes
         if: steps.check.outputs.release_exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
