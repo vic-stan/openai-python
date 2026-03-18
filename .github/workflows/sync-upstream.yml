@@ -85,10 +85,6 @@ jobs:
         if: steps.check.outputs.release_exists == 'false' && steps.merged.outputs.merged == 'false'
         run: git push origin main "${{ steps.upstream.outputs.tag }}"
 
-      - name: Push tag if not already on remote
-        if: steps.check.outputs.release_exists == 'false' && steps.merged.outputs.merged == 'true'
-        run: git push origin "${{ steps.upstream.outputs.tag }}" || true
-
       - name: Fetch upstream release notes
         if: steps.check.outputs.release_exists == 'false'
         env:
@@ -103,4 +99,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.upstream.outputs.tag }}"
-          gh release create "$TAG" --title "$TAG" --notes-file release_notes.md
+          gh release create "$TAG" --title "$TAG" --notes-file release_notes.md --target main
