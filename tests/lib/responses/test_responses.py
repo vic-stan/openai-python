@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from typing import Any, cast
 from typing_extensions import TypeVar
 
+import httpx
 import pytest
 from respx import MockRouter
 from inline_snapshot import snapshot
 
 from openai import OpenAI, AsyncOpenAI
+from openai.lib.streaming.responses._responses import RawResponsesStream, AsyncRawResponsesStream
 from openai._utils import assert_signatures_in_sync
+from openai.types.responses import ResponseStreamEvent
 
 from ...conftest import base_url
 from ..snapshots import make_snapshot_request
@@ -61,3 +65,49 @@ def test_parse_method_definition_in_sync(sync: bool, client: OpenAI, async_clien
         checking_client.responses.parse,
         exclude_params={"tools"},
     )
+
+
+def _responses_sse_bytes() -> bytes:
+    return b"".join(
+        [
+            b'data: {"type":"response.created","sequence_number":1,"response":{"id":"resp_123","object":"response","created_at":0,"status":"in_progress","background":false,"error":null,"incomplete_details":null,"instructions":null,"max_output_tokens":null,"max_tool_calls":null,"model":"gpt-4o-mini","output":[],"parallel_tool_calls":true,"previous_response_id":null,"prompt_cache_key":null,"reasoning":{"effort":null,"summary":null},"safety_identifier":null,"service_tier":"default","store":true,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tools":[],"top_logprobs":0,"top_p":1.0,"truncation":"disabled","usage":null,"user":null,"metadata":{}}}\n\n',
+            b'data: {"type":"response.output_item.added","output_index":0,"sequence_number":2,"item":{"id":"fc_123","type":"function_call","status":"in_progress","arguments":"","call_id":"call_123","name":"search_parts"}}\n\n',
+            b'data: {"type":"response.function_call_arguments.done","arguments":"{\\"make\\":\\"Ford\\"}","item_id":"fc_123","name":null,"output_index":0,"sequence_number":3}\n\n',
+            b'data: [DONE]\n\n',
+        ]
+    )
+
+
+async def _to_aiter(content: bytes):
+    yield content
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sync", [True, False], ids=["sync", "async"])
+async def test_raw_stream_repairs_function_call_done_name(
+    sync: bool,
+    client: OpenAI,
+    async_client: AsyncOpenAI,
+) -> None:
+    if sync:
+        stream = RawResponsesStream(
+            cast_to=cast(Any, ResponseStreamEvent),
+            client=client,
+            response=httpx.Response(200, content=_responses_sse_bytes(), headers={"content-type": "text/event-stream"}),
+        )
+        events = list(stream)
+    else:
+        stream = AsyncRawResponsesStream(
+            cast_to=cast(Any, ResponseStreamEvent),
+            client=async_client,
+            response=httpx.Response(
+                200,
+                content=_to_aiter(_responses_sse_bytes()),
+                headers={"content-type": "text/event-stream"},
+            ),
+        )
+        events = [event async for event in stream]
+
+    done_event = next(event for event in events if event.type == "response.function_call_arguments.done")
+    assert done_event.name == "search_parts"
+    assert done_event.arguments == '{"make":"Ford"}'

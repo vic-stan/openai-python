@@ -74,7 +74,12 @@ from ...types.shared_params.metadata import Metadata
 from ...types.websocket_reconnection import ReconnectingEvent, ReconnectingOverrides, is_recoverable_close
 from ...types.shared_params.reasoning import Reasoning
 from ...types.responses.parsed_response import ParsedResponse
-from ...lib.streaming.responses._responses import ResponseStreamManager, AsyncResponseStreamManager
+from ...lib.streaming.responses._responses import (
+    RawResponsesStream,
+    ResponseStreamManager,
+    AsyncRawResponsesStream,
+    AsyncResponseStreamManager,
+)
 from ...types.responses.compacted_response import CompactedResponse
 from ...types.websocket_connection_options import WebSocketConnectionOptions
 from ...types.responses.response_includable import ResponseIncludable
@@ -999,7 +1004,7 @@ class Responses(SyncAPIResource):
             ),
             cast_to=Response,
             stream=stream or False,
-            stream_cls=Stream[ResponseStreamEvent],
+            stream_cls=RawResponsesStream,
         )
 
     @overload
@@ -1558,7 +1563,7 @@ class Responses(SyncAPIResource):
             ),
             cast_to=Response,
             stream=stream or False,
-            stream_cls=Stream[ResponseStreamEvent],
+            stream_cls=RawResponsesStream,
         )
 
     def delete(
@@ -2746,7 +2751,7 @@ class AsyncResponses(AsyncAPIResource):
             ),
             cast_to=Response,
             stream=stream or False,
-            stream_cls=AsyncStream[ResponseStreamEvent],
+            stream_cls=AsyncRawResponsesStream,
         )
 
     @overload
@@ -3309,7 +3314,7 @@ class AsyncResponses(AsyncAPIResource):
             ),
             cast_to=Response,
             stream=stream or False,
-            stream_cls=AsyncStream[ResponseStreamEvent],
+            stream_cls=AsyncRawResponsesStream,
         )
 
     async def delete(

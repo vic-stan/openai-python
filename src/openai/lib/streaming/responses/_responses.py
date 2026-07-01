@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import inspect
+from copy import deepcopy
 from types import TracebackType
-from typing import Any, List, Generic, Iterable, Awaitable, cast
+from typing import Any, List, Dict, Generic, Iterable, Awaitable, cast
 from typing_extensions import Self, Callable, Iterator, AsyncIterator
 
 from ._types import ParsedResponseSnapshot
@@ -18,6 +19,7 @@ from ...._types import Omit, omit
 from ...._utils import is_given, consume_sync_iterator, consume_async_iterator
 from ...._models import build, construct_type_unchecked
 from ...._streaming import Stream, AsyncStream
+from ...._exceptions import APIError
 from ....types.responses import ParsedResponse, ResponseStreamEvent as RawResponseStreamEvent
 from ..._parsing._responses import TextFormatT, parse_text, parse_response, parse_function_tool_arguments
 from ....types.responses.tool_param import ToolParam
@@ -26,6 +28,116 @@ from ....types.responses.parsed_response import (
     ParsedResponseOutputMessage,
     ParsedResponseFunctionToolCall,
 )
+
+
+class _RawResponsesStreamState:
+    def __init__(self) -> None:
+        self._function_names_by_output_index: Dict[int, str] = {}
+
+    def repair_data(self, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+
+        event_type = data.get("type")
+        if event_type == "response.output_item.added":
+            item = data.get("item")
+            output_index = data.get("output_index")
+            if isinstance(item, dict) and item.get("type") == "function_call" and isinstance(output_index, int):
+                name = item.get("name")
+                if isinstance(name, str) and name:
+                    self._function_names_by_output_index[output_index] = name
+            return data
+
+        if event_type == "response.function_call_arguments.done" and not data.get("name"):
+            output_index = data.get("output_index")
+            if isinstance(output_index, int):
+                name = self._function_names_by_output_index.get(output_index)
+                if name:
+                    repaired = deepcopy(data)
+                    repaired["name"] = name
+                    return repaired
+
+        return data
+
+
+class RawResponsesStream(Stream[RawResponseStreamEvent]):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._raw_responses_state = _RawResponsesStreamState()
+
+    def __stream__(self) -> Iterator[RawResponseStreamEvent]:
+        cast_to = cast(Any, self._cast_to)
+        response = self.response
+        process_data = self._client._process_response_data
+        iterator = self._iter_events()
+
+        try:
+            for sse in iterator:
+                if sse.data.startswith("[DONE]"):
+                    break
+
+                data = sse.json()
+                if isinstance(data, dict) and data.get("error"):
+                    message = None
+                    error = data.get("error")
+                    if isinstance(error, dict):
+                        message = error.get("message")
+                    if not message or not isinstance(message, str):
+                        message = "An error occurred during streaming"
+
+                    raise APIError(
+                        message=message,
+                        request=self.response.request,
+                        body=data["error"],
+                    )
+
+                yield process_data(
+                    data=self._raw_responses_state.repair_data(data),
+                    cast_to=cast_to,
+                    response=response,
+                )
+        finally:
+            response.close()
+
+
+class AsyncRawResponsesStream(AsyncStream[RawResponseStreamEvent]):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._raw_responses_state = _RawResponsesStreamState()
+
+    async def __stream__(self) -> AsyncIterator[RawResponseStreamEvent]:
+        cast_to = cast(Any, self._cast_to)
+        response = self.response
+        process_data = self._client._process_response_data
+        iterator = self._iter_events()
+
+        try:
+            async for sse in iterator:
+                if sse.data.startswith("[DONE]"):
+                    break
+
+                data = sse.json()
+                if isinstance(data, dict) and data.get("error"):
+                    message = None
+                    error = data.get("error")
+                    if isinstance(error, dict):
+                        message = error.get("message")
+                    if not message or not isinstance(message, str):
+                        message = "An error occurred during streaming"
+
+                    raise APIError(
+                        message=message,
+                        request=self.response.request,
+                        body=data["error"],
+                    )
+
+                yield process_data(
+                    data=self._raw_responses_state.repair_data(data),
+                    cast_to=cast_to,
+                    response=response,
+                )
+        finally:
+            await response.aclose()
 
 
 class ResponseStream(Generic[TextFormatT]):
