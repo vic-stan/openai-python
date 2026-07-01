@@ -48,7 +48,7 @@ class TestCompletions:
             model="gpt-5.4",
             audio={
                 "format": "wav",
-                "voice": "string",
+                "voice": "alloy",
             },
             frequency_penalty=-2,
             function_call="none",
@@ -65,6 +65,7 @@ class TestCompletions:
             max_tokens=0,
             metadata={"foo": "string"},
             modalities=["text"],
+            moderation={"model": "model"},
             n=1,
             parallel_tool_calls=True,
             prediction={
@@ -73,7 +74,7 @@ class TestCompletions:
             },
             presence_penalty=-2,
             prompt_cache_key="prompt-cache-key-1234",
-            prompt_cache_retention="in-memory",
+            prompt_cache_retention="in_memory",
             reasoning_effort="none",
             response_format={"type": "text"},
             safety_identifier="safety-identifier-1234",
@@ -182,7 +183,7 @@ class TestCompletions:
             stream=True,
             audio={
                 "format": "wav",
-                "voice": "string",
+                "voice": "alloy",
             },
             frequency_penalty=-2,
             function_call="none",
@@ -199,6 +200,7 @@ class TestCompletions:
             max_tokens=0,
             metadata={"foo": "string"},
             modalities=["text"],
+            moderation={"model": "model"},
             n=1,
             parallel_tool_calls=True,
             prediction={
@@ -207,7 +209,7 @@ class TestCompletions:
             },
             presence_penalty=-2,
             prompt_cache_key="prompt-cache-key-1234",
-            prompt_cache_retention="in-memory",
+            prompt_cache_retention="in_memory",
             reasoning_effort="none",
             response_format={"type": "text"},
             safety_identifier="safety-identifier-1234",
@@ -491,7 +493,7 @@ class TestAsyncCompletions:
             model="gpt-5.4",
             audio={
                 "format": "wav",
-                "voice": "string",
+                "voice": "alloy",
             },
             frequency_penalty=-2,
             function_call="none",
@@ -508,6 +510,7 @@ class TestAsyncCompletions:
             max_tokens=0,
             metadata={"foo": "string"},
             modalities=["text"],
+            moderation={"model": "model"},
             n=1,
             parallel_tool_calls=True,
             prediction={
@@ -516,7 +519,7 @@ class TestAsyncCompletions:
             },
             presence_penalty=-2,
             prompt_cache_key="prompt-cache-key-1234",
-            prompt_cache_retention="in-memory",
+            prompt_cache_retention="in_memory",
             reasoning_effort="none",
             response_format={"type": "text"},
             safety_identifier="safety-identifier-1234",
@@ -625,7 +628,7 @@ class TestAsyncCompletions:
             stream=True,
             audio={
                 "format": "wav",
-                "voice": "string",
+                "voice": "alloy",
             },
             frequency_penalty=-2,
             function_call="none",
@@ -642,6 +645,7 @@ class TestAsyncCompletions:
             max_tokens=0,
             metadata={"foo": "string"},
             modalities=["text"],
+            moderation={"model": "model"},
             n=1,
             parallel_tool_calls=True,
             prediction={
@@ -650,7 +654,7 @@ class TestAsyncCompletions:
             },
             presence_penalty=-2,
             prompt_cache_key="prompt-cache-key-1234",
-            prompt_cache_retention="in-memory",
+            prompt_cache_retention="in_memory",
             reasoning_effort="none",
             response_format={"type": "text"},
             safety_identifier="safety-identifier-1234",
